@@ -127,38 +127,12 @@ async function openIp(ip) {
   }
 }
 
-/** License keys (Gumroad memberships): usage today; many IPs on one key means it is being shared. */
-function renderKeys(k) {
-  const limits = [k.freePerDay ? `free visitors: ${k.freePerDay}/day per IP` : 'free visitors: unlimited', k.enabled ? `members: ${k.memberPerDay ?? 'unlimited'}/day per key` : ''].filter(Boolean).join(' · ');
-  $('keys-note').textContent = k.enabled
-    ? `${limits}. Keys are shown by a short id (never stored in full). Many IP addresses on one key usually means it is being shared.`
-    : `Memberships are off (set GUMROAD_PRODUCT_ID). ${limits}.`;
-  $('keys').replaceChildren(...(k.keys.length ? k.keys.map((x) => {
-    const button = Object.assign(document.createElement('button'), { type: 'button', className: x.blocked ? '' : 'ban', textContent: x.blocked ? 'Unblock' : 'Block' });
-    button.addEventListener('click', async () => {
-      button.disabled = true;
-      try {
-        await api(`/api/admin/keys/${x.id}/block`, { method: x.blocked ? 'DELETE' : 'PUT' });
-        await refresh();
-      } catch (err) {
-        $('message').textContent = err.message;
-        button.disabled = false;
-      }
-    });
-    const label = document.createElement('span');
-    label.append(Object.assign(document.createElement('code'), { textContent: x.id }), ...(x.blocked ? [Object.assign(document.createElement('span'), { className: 'badge', textContent: 'Blocked' })] : []));
-    return row([label, { text: int(x.used), num: true }, { text: int(x.ips), num: true }, button]);
-  }) : [row([{ text: 'No key used today.' }])]));
-}
-
 async function refresh() {
   try {
-    const [r, { bans }, keys] = await Promise.all([
+    const [r, { bans }] = await Promise.all([
       api(`/api/admin/usage?days=${$('days').value}&page=${page}&perPage=20`),
       api('/api/admin/bans'),
-      api('/api/admin/keys'),
     ]);
-    renderKeys(keys);
     const banned = new Set(bans.map((b) => b.ip));
     page = r.recentPage.page; // the server keeps it in range
     $('message').textContent = '';

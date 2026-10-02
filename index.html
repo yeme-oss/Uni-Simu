@@ -145,19 +145,6 @@
       <button id="wb-generate" class="primary" data-i18n="btn.generate" disabled>✎ Generate</button>
       <button id="wb-cu-open" data-i18n="cu.open" data-i18n-title="cu.open.title" title="Plan a long, coherent course on a whole module">🎓 Cursus…</button>
       <div id="wb-timer" class="wb-timer"></div>
-      <!-- Daily allowance / Gumroad membership: only when the server configures it (off in FOSS copies). -->
-      <section id="wb-member" class="wb-member" hidden>
-        <div id="wb-allowance" class="wb-allowance"></div>
-        <form id="wb-license-form" class="row" hidden>
-          <input id="wb-license" type="text" autocomplete="off" spellcheck="false" data-i18n-placeholder="member.placeholder" placeholder="Membership license key" />
-          <button id="wb-license-save" type="submit" data-i18n="member.activate">Activate</button>
-        </form>
-        <div class="wb-member-links">
-          <a id="wb-member-get" target="_blank" rel="noopener" data-i18n="member.get" hidden>⭐ Become a member</a>
-          <button id="wb-license-remove" type="button" class="wb-link" data-i18n="member.remove" hidden>Remove my key</button>
-        </div>
-      </section>
-
       <div class="slides">
         <button id="wb-prev" data-i18n="btn.prev" data-i18n-title="btn.prev.title" title="Previous whiteboard demo" disabled>◀ Previous</button>
         <button id="wb-next" data-i18n="btn.next" data-i18n-title="btn.next.title" title="Next whiteboard demo" disabled>Next ▶</button>
@@ -350,7 +337,7 @@
       <button id="wb-context-explain" role="menuitem" data-i18n="ctx.explain">💡 Explain</button>
     </div>
     <!-- Gemini spend (this session; the tooltip has the details and the all-time total). -->
-    <a id="support-link" class="ui support-link" target="_blank" rel="noopener" data-i18n="support.link" hidden>❤ Support this app on itch.io</a>
+    <a id="support-link" class="ui support-link" target="_blank" rel="noopener" data-i18n="support.link" hidden>❤ Support this app on Patreon</a>
     <div id="wb-cost" class="ui cost-chip" role="status" data-i18n-aria-label="cost.label" aria-label="Gemini spend" tabindex="0">$0.00</div>
 
     <script type="module" src="/src/main.js"></script>

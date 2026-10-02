@@ -314,25 +314,14 @@ body.mode-2d .ui.free { display: none; } /* the flat board takes the whole scree
 .ui .context-menu button { text-align: left; font-weight: 600; }
 
 /* Top-right: Gemini spend. */
-/* Daily allowance / membership block in the panel (only when the server configures it). */
-.wb-member { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
-.wb-allowance { font-size: 13px; font-variant-numeric: tabular-nums; }
-.wb-allowance[data-state='member'] { color: #ffc940; }
-.wb-allowance[data-state='full'], .wb-allowance[data-state='error'] { color: #ff8a8d; }
-.wb-member .row input { flex: 1; min-width: 0; }
-.wb-member-links { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; font-size: 13px; }
-.wb-member-links a { color: #ffc940; font-weight: 600; text-decoration: none; }
-.wb-member-links a:hover { text-decoration: underline; }
-.ui button.wb-link { background: none; border: none; padding: 0; color: var(--muted); text-decoration: underline; font-size: 12px; }
-
 /* "Support this app" link: top right, under the cost chip. */
 .ui.support-link {
   position: fixed; top: 54px; right: 16px; z-index: 15;
   padding: 5px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; text-decoration: none;
-  color: #fff; background: #fa5c5c; /* itch.io red */ border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff; background: #f96854; /* Patreon coral */ border: 1px solid rgba(255, 255, 255, 0.25);
   box-shadow: 0 4px 14px rgba(250, 92, 92, 0.35);
 }
-.ui.support-link:hover { background: #ff6f6f; }
+.ui.support-link:hover { background: #ff7d6b; }
 .ui.support-link:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .ui.support-link[hidden] { display: none; }
 body.mode-2d .ui.support-link { display: none; }

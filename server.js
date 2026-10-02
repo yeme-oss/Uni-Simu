@@ -19,9 +19,6 @@ import { demoFor } from './src/whiteboard/demoReplicationFork.js';
 import { voiceWithCache } from './server/voiceCache.js';
 import { listRatings, rateLecture } from './server/ratings.js';
 import {
-  checkQuota, quotaStatus, keysReport, setKeyBlocked, QUOTA_ON, MEMBERSHIP, MEMBERSHIP_URL, FREE_PER_DAY, MEMBER_PER_DAY,
-} from './server/quota.js';
-import {
   recordUsage, usageReport, ipReport, forgetIp, banIp, unbanIp, listBans, blockBanned, requireAdmin, ADMIN_ENABLED, RETENTION_DAYS,
 } from './server/usage.js';
 
@@ -84,13 +81,13 @@ app.post('/api/lecture/voice', handle((body, meter) => {
 
 // What the page may offer: model selection is locked to the default level unless
 // ALLOW_MODEL_SELECTION=true (GitHub FOSS release). Enforced per request by resolveTier().
-// "Support this app" link (top right): SUPPORT_URL, e.g. your itch.io page; only https links are shown.
-const SUPPORT_URL = /^https:\/\/[^\s"<>]+$/.test(process.env.SUPPORT_URL ?? '') ? process.env.SUPPORT_URL : null;
+// "Support this app" link (top right): the Patreon page by default; SUPPORT_URL overrides it (https only).
+const DEFAULT_SUPPORT_URL = 'https://www.patreon.com/c/PierreIgorZarebski';
+const SUPPORT_URL = /^https:\/\/[^\s"<>]+$/.test(process.env.SUPPORT_URL ?? '') ? process.env.SUPPORT_URL : DEFAULT_SUPPORT_URL;
 
 app.get('/api/config', (req, res) => {
   res.json({
     supportUrl: SUPPORT_URL,
-    quota: QUOTA_ON, membership: MEMBERSHIP, membershipUrl: MEMBERSHIP_URL, // all off in a FOSS copy (see server/quota.js)
     modelSelection: MODEL_SELECTION,
     defaultTier: DEFAULT_TIER,
     tiers: Object.entries(MODEL_TIERS).map(([id, t]) => ({ id, label: t.label, text: t.text, tts: t.tts })),
@@ -98,8 +95,7 @@ app.get('/api/config', (req, res) => {
 });
 
 // On-the-fly whiteboard lesson: narrated diagram steps written by the LLM, validated (and repaired) here.
-// Costly: counted against the daily allowance when one is configured (server/quota.js).
-app.post('/api/whiteboard/generate', checkQuota, handle(async (body, meter) => {
+app.post('/api/whiteboard/generate', handle(async (body, meter) => {
   const started = Date.now();
   const thinkingLevel = ['low', 'medium', 'high'].includes(body.thinking) ? body.thinking : 'medium';
   // A cursus topic gets the course's context (outline, what was taught, what comes next) instead of the coursework digest.
@@ -122,7 +118,7 @@ app.post('/api/whiteboard/generate', checkQuota, handle(async (body, meter) => {
 }));
 
 // A student's interrupting question: a short answer demo that leads back to the lesson.
-app.post('/api/whiteboard/answer', checkQuota, handle(async (body, meter) => {
+app.post('/api/whiteboard/answer', handle(async (body, meter) => {
   const started = Date.now();
   const thinkingLevel = ['low', 'medium', 'high'].includes(body.thinking) ? body.thinking : 'medium';
   const { lesson, attempts, layoutProblems } = await generateAnswerLesson({
@@ -253,12 +249,6 @@ app.delete('/api/admin/usage/:ip', requireAdmin, route((req) => forgetIp(req.par
 app.get('/api/admin/bans', requireAdmin, route(() => listBans()));
 app.put('/api/admin/bans/:ip', requireAdmin, route((req) => banIp(req.params.ip)));
 app.delete('/api/admin/bans/:ip', requireAdmin, route((req) => unbanIp(req.params.ip)));
-app.get('/api/admin/keys', requireAdmin, route(() => keysReport()));
-app.put('/api/admin/keys/:id/block', requireAdmin, route((req) => setKeyBlocked(req.params.id, true)));
-app.delete('/api/admin/keys/:id/block', requireAdmin, route((req) => setKeyBlocked(req.params.id, false)));
-
-// The visitor's allowance today (and whether their license key works).
-app.get('/api/quota', route((req) => quotaStatus(req)));
 
 // Whiteboard demo (Milestone 1): hardcoded spec, validated before it's sent.
 app.get('/api/whiteboard/demo', (req, res) => {
@@ -288,7 +278,6 @@ app.listen(PORT, () => {
   console.log(`Classroom running at http://localhost:${PORT}`);
   console.log(`  text: ${TEXT_MODEL} | slides: ${IMAGE_MODEL} | voice: ${TTS_MODEL} (${TTS_VOICE} / ${TTS_VOICE_FEMALE})`);
   console.log(`  model selection: ${MODEL_SELECTION ? `unlocked (${Object.keys(MODEL_TIERS).join(', ')})` : `locked to ${MODEL_TIERS[DEFAULT_TIER].label} (set ALLOW_MODEL_SELECTION=true to unlock)`}`);
-  console.log(`  allowance: ${QUOTA_ON ? `free ${FREE_PER_DAY || 'unlimited'}/day${MEMBERSHIP ? `, members ${MEMBER_PER_DAY || 'unlimited'}/day (Gumroad keys)` : ''}` : 'unlimited (no QUOTA_FREE_PER_DAY / GUMROAD_PRODUCT_ID)'}`);
   console.log(`  admin panel: ${ADMIN_ENABLED ? `http://localhost:${PORT}/admin.html (usage kept ${RETENTION_DAYS} days)` : 'off (set ADMIN_TOKEN to enable it)'}`);
   if (!process.env.GEMINI_API_KEY) console.warn('Warning: GEMINI_API_KEY is not set — lecture generation will fail.');
 });

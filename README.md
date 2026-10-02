@@ -53,14 +53,14 @@ npm run dev               # http://localhost:5173
 
 Production: `npm run build && npm start`. Tests: `npm test`.
 
-All other settings (models, voices, admin panel, quotas, memberships, support link) are optional and documented in [`.env.example`](.env.example). By default a self-hosted copy has **no limits**.
+All other settings (models, voices, admin panel, support link) are optional and documented in [`.env.example`](.env.example). By default a self-hosted copy has **no limits**.
 
 ## How it works
 
 The AI never draws pixels. It returns a **strict JSON lesson spec** (validated against `src/whiteboard/schema.json`), and the app animates it: text, shapes, curves, equations. That keeps boards clean, and means a lesson can be saved, replayed and edited as plain data.
 
 ```
-server/   Express API: Gemini calls, quotas, usage, cursus, coursework
+server/   Express API: Gemini calls, usage, cursus, coursework
 src/      Three.js app, whiteboard engine, i18n, push-to-talk
 test/     node --test suites
 ```

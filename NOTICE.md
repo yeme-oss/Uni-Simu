@@ -4,4 +4,4 @@ The original code and documentation in this repository are dedicated to the publ
 
 - **Patrick Hand** font (`public/fonts/`), SIL Open Font License 1.1, (c) 2010-2012 Patrick Wagesreiter. See `public/fonts/PatrickHand-OFL.txt`.
 - **npm dependencies** (Express, Three.js, MathJax, Ajv, Vite): each under its own license; see `package.json` and `node_modules` after install.
-- **3D models** in `public/` (`classroom.glb`, `teacher.glb`, `teacher_female.glb`): TODO, origin and license to be confirmed before release.
+- **3D models** in `public/` (`classroom.glb`, `teacher.glb`, `teacher_female.glb`): released under CC0 as well; nothing to attribute.

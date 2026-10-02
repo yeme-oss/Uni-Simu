@@ -40,28 +40,13 @@ async function fetchVoice(text, voice, teacher, model) {
   return voice.decode(await res.arrayBuffer());
 }
 
-// Membership license key (Gumroad), kept in this browser and sent with every request.
-const LICENSE_STORE = 'wb-license';
-const licenseKey = () => { try { return localStorage.getItem(LICENSE_STORE) ?? ''; } catch { return ''; } };
-const setLicenseKey = (key) => { try { key ? localStorage.setItem(LICENSE_STORE, key) : localStorage.removeItem(LICENSE_STORE); } catch { /* ignore */ } };
-const withLicense = (options = {}) => (licenseKey() ? { ...options, headers: { ...options.headers, 'X-License-Key': licenseKey() } } : options);
-
-/** A readable message for a failed request: the daily limit and license problems get their own. */
-function errorText(err) {
-  if (err.code === 'quota') return t(err.membership ? 'quota.reachedJoin' : 'quota.reached', { limit: err.limit });
-  if (err.code === 'license') return t('member.bad', { error: err.message });
-  return err.message;
-}
-
-// Requests that use up the daily allowance: the allowance line is refreshed after each one.
-const COUNTED = /\/api\/whiteboard\/(generate|answer)$/;
-let onCounted = null;
+/** A readable message for a failed request. */
+const errorText = (err) => err.message;
 
 async function fetchJSON(url, options) {
-  const res = await fetch(url, withLicense(options));
-  if (COUNTED.test(url)) setTimeout(() => onCounted?.(), 300);
+  const res = await fetch(url, options);
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw Object.assign(new Error(body.error || `${url} failed (${res.status})`), { code: body.code, limit: body.limit, membership: body.membership });
+  if (!res.ok) throw Object.assign(new Error(body.error || `${url} failed (${res.status})`));
   recordCost(body.cost); // Gemini spend of this request (top-right corner)
   return body;
 }
@@ -191,12 +176,6 @@ export function createWhiteboardDemo({ board, quizBoard = null }) {
     modelSelection = Boolean(config.modelSelection);
     const support = $('support-link'); // shown only when the server has a SUPPORT_URL
     if (config.supportUrl) Object.assign(support, { href: config.supportUrl, hidden: false });
-    if (config.quota) { // daily allowance / membership (never in a FOSS copy without this configuration)
-      $('wb-member').hidden = false;
-      $('wb-license-form').hidden = !config.membership;
-      if (config.membershipUrl) Object.assign($('wb-member-get'), { href: config.membershipUrl, hidden: false });
-      refreshAllowance();
-    }
     modelSelect.replaceChildren(...config.tiers.map((tier) => {
       const option = new Option(tier.label, tier.id);
       if (['lite', 'flash', 'pro'].includes(tier.id)) option.dataset.i18n = `model.${tier.id}`;
@@ -1193,38 +1172,6 @@ export function createWhiteboardDemo({ board, quizBoard = null }) {
   questionField.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); questionBox.requestSubmit(); }
   });
-
-  // --- Daily allowance and membership key (shown only when the server configures them) --------
-  let memberMessage = '';
-  async function refreshAllowance() {
-    if ($('wb-member').hidden) return;
-    try {
-      const res = await fetch('/api/quota', withLicense());
-      const q = await res.json();
-      const status = !q.enabled ? '' : q.error ? t('member.bad', { error: q.error })
-        : q.tier === 'member' ? (q.limit ? t('member.status', { used: q.used, limit: q.limit }) : t('member.unlimited'))
-          : q.limit ? t('quota.free', { used: q.used, limit: q.limit }) : '';
-      $('wb-allowance').textContent = [status, memberMessage].filter(Boolean).join(' · ');
-      $('wb-allowance').dataset.state = q.error ? 'error' : q.limit && q.used >= q.limit ? 'full' : q.tier;
-      $('wb-license-remove').hidden = !licenseKey();
-      $('wb-license').placeholder = t(licenseKey() ? 'member.placeholderSaved' : 'member.placeholder');
-      memberMessage = '';
-    } catch { /* the next refresh will tell */ }
-  }
-  $('wb-license-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const key = $('wb-license').value.trim();
-    if (!key) return;
-    setLicenseKey(key);
-    $('wb-license').value = '';
-    const res = await fetch('/api/quota', withLicense()).then((r) => r.json()).catch(() => null);
-    if (res?.error) { setLicenseKey(''); memberMessage = ''; } // not a working key: forget it (the status says why)
-    else memberMessage = t('member.thanks');
-    await refreshAllowance();
-    if (res?.error) $('wb-allowance').textContent = t('member.bad', { error: res.error });
-  });
-  $('wb-license-remove').addEventListener('click', () => { setLicenseKey(''); refreshAllowance(); });
-  onCounted = refreshAllowance;
 
   // --- Language ---------------------------------------------------------------
   // The picker switches the interface right away; new Gemini requests use the new language.

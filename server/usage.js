@@ -71,7 +71,6 @@ export async function recordUsage(req, cost) {
   totals.usd += cost.usd || 0;
   db.events.push({
     at, ip, path: req.path, inputTokens: cost.inputTokens || 0, outputTokens: cost.outputTokens || 0, usd: cost.usd || 0,
-    ...(req.quota?.tier === 'member' && { key: req.quota.id.slice(4) }), // which license key (its short id), for members
   });
   if (db.events.length > MAX_EVENTS * 1.1) purge();
   scheduleSave();
