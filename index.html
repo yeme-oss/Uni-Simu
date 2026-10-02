@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="data:," />
+    <title>Uni Simu</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #111; }
+      canvas { display: block; }
+      /* Loading screen: inline so it shows before any script has loaded. */
+      #loading { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: #111; color: #ddd; font: 15px/1.4 system-ui, sans-serif; transition: opacity 0.4s; }
+      #loading.done { opacity: 0; pointer-events: none; }
+      .loading-card { display: flex; flex-direction: column; align-items: center; gap: 12px; width: min(360px, calc(100vw - 32px)); text-align: center; }
+      .loading-card h1 { margin: 0; font-size: 20px; font-weight: 600; color: #f2f0eb; }
+      .spinner { width: 34px; height: 34px; border: 3px solid rgba(255, 255, 255, 0.15); border-top-color: #4f8cff; border-radius: 50%; animation: spin 0.9s linear infinite; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .loading-bar { width: 100%; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+      .loading-bar > div { height: 100%; width: 0; background: #4f8cff; transition: width 0.2s; }
+      .loading-bar.indeterminate > div { width: 30%; animation: slide 1.2s ease-in-out infinite; }
+      @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+      #loading-detail { font-size: 13px; color: #9a978f; font-variant-numeric: tabular-nums; min-height: 1.4em; }
+      @media (prefers-reduced-motion: reduce) { .spinner, .loading-bar.indeterminate > div { animation-duration: 3s; } }
+    </style>
+  </head>
+  <body>
+    <div id="loading" role="status" aria-live="polite">
+      <div class="loading-card">
+        <h1>Uni Simu</h1>
+        <div class="spinner" aria-hidden="true"></div>
+        <div id="loading-stage">Loading the 3D engine…</div>
+        <div id="loading-bar" class="loading-bar indeterminate"><div></div></div>
+        <div id="loading-detail"></div>
+      </div>
+    </div>
+    <script>
+      // The loading screen shows before the app's scripts: pick its language here (same rule as src/i18n.js).
+      (function () {
+        var lang = null;
+        try { lang = localStorage.getItem('wb-lang'); } catch (e) { /* storage unavailable */ }
+        if (lang !== 'en' && lang !== 'fr') lang = (navigator.language || '').toLowerCase().indexOf('fr') === 0 ? 'fr' : 'en';
+        document.documentElement.lang = lang;
+        if (lang === 'fr') {
+          document.title = 'Uni Simu';
+          document.getElementById('loading-stage').textContent = 'Chargement du moteur 3D…';
+        }
+      })();
+    </script>
+    <div id="wb-flat" hidden>
+      <!-- Landscape phones, 2D view: the subtitles scroll here, beside the board (see ui.css). -->
+      <div id="wb-transcript" class="ui transcript" data-i18n-aria-label="subtitles" aria-label="Subtitles" role="log"></div>
+    </div>
+
+    <!-- Phones: the settings panel is a drawer opened by this button (hidden on larger screens). -->
+    <button id="panel-toggle" class="ui panel-toggle" aria-controls="panel" aria-expanded="false"
+            data-i18n-aria-label="panel.open" aria-label="Show settings">☰</button>
+
+    <!-- Free lectures: hand-made, no generation needed (see src/whiteboard/freeLectures.js). -->
+    <div id="free" class="ui free">
+      <button id="free-card" type="button" class="free-card" aria-haspopup="menu" aria-expanded="false" aria-controls="free-menu">
+        <span class="free-card-icon" aria-hidden="true">🎓</span>
+        <span class="free-card-text">
+          <strong data-i18n="free.card.title">Feeling lost?</strong>
+          <span data-i18n="free.card.text">Just click here to attend a free lecture</span>
+        </span>
+        <span class="free-card-chevron" aria-hidden="true">▾</span>
+      </button>
+      <div id="free-menu" class="free-menu" role="menu" hidden></div>
+    </div>
+
+    <aside id="panel" class="ui">
+      <header>
+        <h1 data-i18n="panel.title">Uni Simu</h1>
+        <select id="wb-lang" class="wb-lang" data-i18n-aria-label="lang.label" aria-label="Language">
+          <option value="en">EN</option>
+          <option value="fr">FR</option>
+        </select>
+        <span id="wb-status" class="status">Ready</span>
+      </header>
+
+      <div class="field">
+        <label for="wb-subject" data-i18n="field.subject">Subject matter</label>
+        <div class="row">
+          <textarea id="wb-subject" rows="2" data-i18n-placeholder="field.subject.placeholder" placeholder="e.g. Forces on a block on an inclined plane"></textarea>
+          <!-- Phones only: same as ✎ Generate, right next to the subject. -->
+          <button id="wb-go" type="button" class="primary go-button" data-i18n="btn.go" data-i18n-title="btn.go.title" title="Generate a demo about this subject" disabled>GO</button>
+        </div>
+      </div>
+      <div class="field">
+        <span data-i18n="field.length">Length</span>
+        <div class="row">
+          <input id="wb-length" type="number" min="5" max="120" value="20" />
+          <div class="segmented" role="radiogroup" data-i18n-aria-label="unit.label" aria-label="Whiteboard length unit">
+            <label><input type="radio" name="wbLengthUnit" value="seconds" checked /><span data-i18n="unit.seconds">seconds</span></label>
+            <label><input type="radio" name="wbLengthUnit" value="steps" /><span data-i18n="unit.steps">steps</span></label>
+          </div>
+        </div>
+      </div>
+      <div class="wb-options">
+        <label class="field">
+          <span data-i18n="field.difficulty">Difficulty</span>
+          <select id="wb-difficulty">
+            <option value="eli5" data-i18n="diff.eli5">Like I'm 5</option>
+            <option value="beginner" data-i18n="diff.beginner">Beginner</option>
+            <option value="undergraduate" data-i18n="diff.undergraduate" selected>Undergraduate</option>
+            <option value="graduate" data-i18n="diff.graduate">Graduate</option>
+            <option value="expert" data-i18n="diff.expert">Expert</option>
+          </select>
+        </label>
+        <label class="field">
+          <span data-i18n="field.thinking">Thinking</span>
+          <select id="wb-thinking">
+            <option value="low" data-i18n="think.low">Low (fast)</option>
+            <option value="medium" data-i18n="think.medium" selected>Medium</option>
+            <option value="high" data-i18n="think.high">High (slow)</option>
+          </select>
+        </label>
+      </div>
+      <div class="field">
+        <span data-i18n="field.model">Model</span>
+        <div class="row">
+          <select id="wb-model" data-i18n-aria-label="field.model" aria-label="Model" aria-describedby="wb-model-tip" disabled>
+            <option value="lite" data-i18n="model.lite" selected>Flash-Lite</option>
+            <option value="flash" data-i18n="model.flash">Flash (smarter)</option>
+            <option value="pro" data-i18n="model.pro">Pro (smartest, slow)</option>
+          </select>
+          <button id="wb-model-help" type="button" class="wb-help" aria-expanded="false" aria-controls="wb-model-tip"
+                  title="Smarter models are only available in the GitHub FOSS release">?</button>
+        </div>
+        <p id="wb-model-tip" class="wb-hint" hidden>Smarter models are locked in this version. They are available in the free, open-source (FOSS) release on GitHub, where you run the app with your own Gemini API key.</p>
+      </div>
+      <label class="field">
+        <span data-i18n="field.teacher">Teacher</span>
+        <select id="wb-teacher">
+          <option value="male" data-i18n="teacher.male" selected>Male teacher</option>
+          <option value="female" data-i18n="teacher.female">Female teacher</option>
+          <option value="none" data-i18n="teacher.none">None visible</option>
+          <option value="2d" data-i18n="teacher.2d">Purely 2D</option>
+        </select>
+      </label>
+      <label class="check">
+        <input id="wb-subtitles" type="checkbox" checked />
+        <span data-i18n="subtitles">Subtitles</span>
+      </label>
+      <button id="wb-generate" class="primary" data-i18n="btn.generate" disabled>✎ Generate</button>
+      <button id="wb-cu-open" data-i18n="cu.open" data-i18n-title="cu.open.title" title="Plan a long, coherent course on a whole module">🎓 Cursus…</button>
+      <div id="wb-timer" class="wb-timer"></div>
+      <!-- Daily allowance / Gumroad membership: only when the server configures it (off in FOSS copies). -->
+      <section id="wb-member" class="wb-member" hidden>
+        <div id="wb-allowance" class="wb-allowance"></div>
+        <form id="wb-license-form" class="row" hidden>
+          <input id="wb-license" type="text" autocomplete="off" spellcheck="false" data-i18n-placeholder="member.placeholder" placeholder="Membership license key" />
+          <button id="wb-license-save" type="submit" data-i18n="member.activate">Activate</button>
+        </form>
+        <div class="wb-member-links">
+          <a id="wb-member-get" target="_blank" rel="noopener" data-i18n="member.get" hidden>⭐ Become a member</a>
+          <button id="wb-license-remove" type="button" class="wb-link" data-i18n="member.remove" hidden>Remove my key</button>
+        </div>
+      </section>
+
+      <div class="slides">
+        <button id="wb-prev" data-i18n="btn.prev" data-i18n-title="btn.prev.title" title="Previous whiteboard demo" disabled>◀ Previous</button>
+        <button id="wb-next" data-i18n="btn.next" data-i18n-title="btn.next.title" title="Next whiteboard demo" disabled>Next ▶</button>
+      </div>
+      <div id="wb-counter" class="elapsed">No demos yet</div>
+      <div class="wb-buttons">
+        <button id="wb-play" data-i18n="btn.play">▶ Play</button>
+        <button id="wb-pause" data-i18n="btn.pause" disabled>❚❚ Pause</button>
+        <button id="wb-resume" data-i18n="btn.resume" disabled>▶ Resume</button>
+        <button id="wb-restart" data-i18n="btn.restart" disabled>↺ Restart</button>
+        <button id="wb-interrupt" class="wide" data-i18n="btn.interrupt" disabled>✋ Interrupt (ask a question)</button>
+      </div>
+      <form id="wb-question-box" class="wb-question" hidden>
+        <label class="field">
+          <span data-i18n="question.label">Your question</span>
+          <textarea id="wb-question" rows="2" data-i18n-placeholder="question.placeholder" placeholder="Ask the teacher about what's on the board…"></textarea>
+        </label>
+        <button id="wb-ask" type="submit" class="primary" data-i18n="btn.ask" disabled>✋ Ask</button>
+      </form>
+
+      <section class="wb-suggest">
+        <h2 data-i18n="upnext.title">Up next</h2>
+        <p class="wb-hint" data-i18n="upnext.hint">Click a topic to preload it; the selected one plays right after the current demo.</p>
+        <div id="wb-suggestions" class="wb-suggestions"><span class="wb-hint" data-i18n="upnext.none">No suggestions yet.</span></div>
+        <label class="check">
+          <input id="wb-auto-queue" type="checkbox" checked />
+          <span data-i18n="upnext.autoqueue">Related follow-up automatically queued</span>
+        </label>
+        <label class="check">
+          <input id="wb-use-coursework" type="checkbox" />
+          <span data-i18n="upnext.coursework">Teacher refers back to the previous slides</span>
+        </label>
+        <label class="check" data-i18n-title="cw.private.title" title="Your lessons are saved in this browser only: they never leave it, and nobody else can see them">
+          <input id="wb-cw-private" type="checkbox" />
+          <span data-i18n="cw.private">🔒 Keep my lessons private (this browser only)</span>
+        </label>
+        <div class="wb-coursework-buttons">
+          <button id="wb-cw-show" data-i18n="cw.show">Show all my past coursework</button>
+          <button id="wb-cw-export" data-i18n="cw.export">Export all my coursework</button>
+          <button id="wb-cw-import" data-i18n="cw.import">Import your coursework progress</button>
+          <input id="wb-cw-file" type="file" accept="application/json,.json" hidden />
+        </div>
+        <div id="wb-cw-message" class="wb-hint" hidden></div>
+      </section>
+
+      <details class="wb-about">
+        <summary data-i18n="about.title">About</summary>
+        <p>Pierre Igor Zarebski - France<br /><a href="mailto:pierre.igor.zarebski@gmail.com">pierre.igor.zarebski@gmail.com</a></p>
+      </details>
+    </aside>
+
+    <dialog id="wb-cw-modal" class="ui wb-modal" aria-labelledby="wb-cw-title">
+      <header>
+        <h2 id="wb-cw-title" data-i18n="cw.title">My past coursework</h2>
+        <button id="wb-cw-close" data-i18n-aria-label="close" aria-label="Close">✕</button>
+      </header>
+      <div id="wb-cw-modal-message" class="wb-hint" hidden></div>
+      <p id="wb-cw-stats" class="wb-hint wb-stats"></p>
+      <div id="wb-cw-list" class="wb-cw-list"></div>
+    </dialog>
+
+    <!-- Cursus: plan a long course (acts -> numbered parts -> topics), then study it topic by topic. -->
+    <dialog id="wb-cu-modal" class="ui wb-modal wb-cu-modal" aria-labelledby="wb-cu-heading">
+      <header>
+        <h2 id="wb-cu-heading" data-i18n="cu.title">Cursus</h2>
+        <button id="wb-cu-close" data-i18n-aria-label="close" aria-label="Close">✕</button>
+      </header>
+      <div id="wb-cu-message" class="wb-hint" role="status" hidden></div>
+
+      <div id="wb-cu-home" class="wb-cu-body">
+        <form id="wb-cu-form" class="wb-cu-form">
+          <div class="wb-cu-fields">
+            <label class="field">
+              <span data-i18n="cu.domain">Domain</span>
+              <input id="wb-cu-domain" type="text" maxlength="120" data-i18n-placeholder="cu.domain.placeholder" placeholder="e.g. Biology" />
+            </label>
+            <label class="field">
+              <span data-i18n="cu.module">Module</span>
+              <input id="wb-cu-module" type="text" maxlength="200" data-i18n-placeholder="cu.module.placeholder" placeholder="e.g. Bacteria" />
+            </label>
+          </div>
+          <div class="wb-cu-fields">
+            <label class="field">
+              <span data-i18n="cu.total">Course length</span>
+              <select id="wb-cu-total">
+                <option value="30" selected>30 min</option>
+                <option value="60">1 h</option>
+                <option value="120">2 h</option>
+                <option value="180">3 h</option>
+                <option value="240">4 h</option>
+              </select>
+            </label>
+            <label class="field">
+              <span data-i18n="cu.topicLength">Length of a topic (seconds)</span>
+              <input id="wb-cu-topic" type="number" min="20" max="300" step="5" value="120" />
+            </label>
+          </div>
+          <div class="field wb-cu-level">
+            <label for="wb-cu-level" data-i18n="cu.level">Difficulty</label>
+            <input id="wb-cu-level" type="range" min="0" max="100" step="5" value="50" list="wb-cu-level-marks" aria-describedby="wb-cu-level-value" />
+            <datalist id="wb-cu-level-marks"><option value="0"></option><option value="25"></option><option value="50"></option><option value="75"></option><option value="100"></option></datalist>
+            <div class="wb-cu-marks" aria-hidden="true">
+              <span style="--at: 0" data-i18n="lvl.0">Like I'm 5</span>
+              <span style="--at: 0.25" data-i18n="lvl.1">Beginner</span>
+              <span style="--at: 0.5" data-i18n="lvl.2">Medium</span>
+              <span style="--at: 0.75" data-i18n="lvl.3">Expert</span>
+              <span style="--at: 1" data-i18n="lvl.4">Master</span>
+            </div>
+            <p id="wb-cu-level-value" class="wb-hint"></p>
+          </div>
+          <p id="wb-cu-shape" class="wb-hint"></p>
+          <button id="wb-cu-create" type="submit" class="primary" data-i18n="cu.create">Prepare the course plan</button>
+        </form>
+        <div class="wb-cu-cloud-head">
+          <span data-i18n="cu.inspire">Need inspiration?</span>
+          <button id="wb-cu-dice" type="button" data-i18n="cu.dice">🎲 Surprise me</button>
+        </div>
+        <!-- Inspiration carousel: two rows of ideas, scrolled sideways. -->
+        <div class="wb-cu-carousel">
+          <button id="wb-cu-prev" type="button" class="wb-cu-nav" data-i18n-aria-label="cu.prevIdeas" aria-label="Previous ideas">‹</button>
+          <div id="wb-cu-cloud" class="wb-cu-cloud"></div>
+          <button id="wb-cu-next" type="button" class="wb-cu-nav" data-i18n-aria-label="cu.nextIdeas" aria-label="More ideas">›</button>
+        </div>
+        <h3 data-i18n="cu.mine">My cursus</h3>
+        <p id="wb-cu-stats" class="wb-hint wb-stats"></p>
+        <div id="wb-cu-list" class="wb-cw-list"></div>
+      </div>
+
+      <div id="wb-cu-plan" class="wb-cu-body" hidden>
+        <button id="wb-cu-back" type="button" class="wb-cu-back" data-i18n="cu.back">← All my cursus</button>
+        <h3 id="wb-cu-plan-title"></h3>
+        <p id="wb-cu-plan-thread" class="wb-hint"></p>
+        <div class="wb-cu-progress">
+          <progress id="wb-cu-progress" max="1" value="0"></progress>
+          <span id="wb-cu-progress-text" class="wb-hint"></span>
+        </div>
+        <button id="wb-cu-resume" type="button" class="primary"></button>
+        <div id="wb-cu-acts" class="wb-cu-acts"></div>
+      </div>
+    </dialog>
+
+    <dialog id="free-modal" class="ui wb-modal free-modal" aria-labelledby="free-modal-title">
+      <header>
+        <h2 id="free-modal-title" data-i18n="free.all">📚 All full free lectures</h2>
+        <button id="free-modal-close" data-i18n-aria-label="close" aria-label="Close">✕</button>
+      </header>
+      <p class="wb-hint" data-i18n="free.all.hint">Hand-made lectures, free to watch. Pick one, and rate it when you are done: your stars help others choose.</p>
+      <div id="free-list" class="free-list"></div>
+    </dialog>
+
+    <!-- Phones: pause / resume without opening the drawer (shown while a demo plays). -->
+    <button id="wb-mobile-pause" class="ui mobile-pause" data-i18n-aria-label="mobile.pause" aria-label="Pause" hidden>❚❚</button>
+
+    <div id="quiz-tip" class="ui quiz-tip" role="tooltip" hidden></div>
+
+    <div class="ui corner-buttons">
+      <div id="ptt-status" class="ptt-status" role="status" hidden></div>
+      <button id="ptt" class="ptt" data-i18n-title="ptt.title" title="Push to talk (hold)"><span aria-hidden="true">🎤</span> <span class="ptt-label" data-i18n="ptt.label">Push to talk</span></button>
+      <button id="wb-view-2d" class="view-toggle" aria-pressed="false" data-i18n-title="view.2d.title" title="Show the whiteboard flat, full screen">2D</button>
+    </div>
+
+    <div id="wb-subtitle-bar" class="ui subtitle" hidden></div>
+    <div id="wb-first-load" class="ui first-load" role="status" aria-live="polite" hidden>
+      <div class="spinner" aria-hidden="true"></div>
+      <div class="first-load-text">
+        <strong id="wb-first-load-title">Preparing the first demo…</strong>
+        <span data-i18n="first.note">The first demo takes the longest to load; after that the next ones queue up fast. Please wait.</span>
+        <span id="wb-first-load-time" class="first-load-time"></span>
+      </div>
+    </div>
+    <!-- Full screen while a cursus topic is being prepared (written and voiced). -->
+    <div id="wb-topic-loading" class="ui topic-loading" role="status" aria-live="polite" hidden>
+      <div class="topic-loading-card">
+        <div id="wb-tl-spinner" class="spinner" aria-hidden="true"></div>
+        <span id="wb-tl-course" class="topic-loading-course"></span>
+        <strong id="wb-tl-topic" class="topic-loading-topic"></strong>
+        <span id="wb-tl-summary" class="topic-loading-summary"></span>
+        <span id="wb-tl-phase" class="topic-loading-phase"></span>
+        <p id="wb-tl-note" class="topic-loading-note"></p>
+        <div id="wb-tl-actions" class="topic-loading-actions" hidden>
+          <button id="wb-tl-retry" type="button" class="primary" data-i18n="tl.retry">↻ Try again</button>
+          <button id="wb-tl-close" type="button" data-i18n="tl.close">Close</button>
+        </div>
+      </div>
+    </div>
+    <button id="wb-next-prompt" class="ui next-prompt" hidden></button>
+    <!-- Right-click / long press on the board: explain what's there (see demo.js). -->
+    <div id="wb-context" class="ui context-menu" role="menu" hidden>
+      <div id="wb-context-target" class="context-target"></div>
+      <button id="wb-context-explain" role="menuitem" data-i18n="ctx.explain">💡 Explain</button>
+    </div>
+    <!-- Gemini spend (this session; the tooltip has the details and the all-time total). -->
+    <a id="support-link" class="ui support-link" target="_blank" rel="noopener" data-i18n="support.link" hidden>❤ Support this app on itch.io</a>
+    <div id="wb-cost" class="ui cost-chip" role="status" data-i18n-aria-label="cost.label" aria-label="Gemini spend" tabindex="0">$0.00</div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

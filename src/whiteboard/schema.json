@@ -1,0 +1,179 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://uni-ai.local/whiteboard-spec.json",
+  "title": "Whiteboard diagram spec",
+  "description": "An ordered list of steps drawn on the whiteboard. Coordinates are logical units on a 1000 x 560 board (x right, y down). Text x/y is the anchor point (per align) at the vertical middle of the text.",
+  "type": "object",
+  "required": ["steps"],
+  "additionalProperties": false,
+  "properties": {
+    "title": { "type": "string", "maxLength": 200 },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 40,
+      "items": { "$ref": "#/definitions/step" }
+    }
+  },
+  "definitions": {
+    "step": {
+      "type": "object",
+      "required": ["cue", "elements"],
+      "additionalProperties": false,
+      "properties": {
+        "cue": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$", "description": "id of the narration segment that triggers this step" },
+        "elements": { "type": "array", "minItems": 1, "maxItems": 200, "items": { "$ref": "#/definitions/element" } }
+      }
+    },
+    "coord": { "type": "number", "minimum": -100, "maximum": 1100 },
+    "size": { "type": "number", "exclusiveMinimum": 0, "maximum": 1100 },
+    "color": {
+      "anyOf": [
+        { "enum": ["black", "blue", "red", "green", "orange", "purple"] },
+        { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }
+      ]
+    },
+    "strokeWidth": { "type": "number", "minimum": 0.5, "maximum": 20 },
+    "sequence": { "type": "string", "pattern": "^[ACGTacgt]{1,40}$" },
+    "element": {
+      "type": "object",
+      "required": ["type"],
+      "discriminator": { "propertyName": "type" },
+      "oneOf": [
+        { "$ref": "#/definitions/line" },
+        { "$ref": "#/definitions/arrow" },
+        { "$ref": "#/definitions/rect" },
+        { "$ref": "#/definitions/circle" },
+        { "$ref": "#/definitions/path" },
+        { "$ref": "#/definitions/text" },
+        { "$ref": "#/definitions/math" },
+        { "$ref": "#/definitions/dnaStrandPair" },
+        { "$ref": "#/definitions/replicationFork" }
+      ]
+    },
+    "line": {
+      "type": "object",
+      "required": ["type", "x1", "y1", "x2", "y2"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "line" },
+        "x1": { "$ref": "#/definitions/coord" }, "y1": { "$ref": "#/definitions/coord" },
+        "x2": { "$ref": "#/definitions/coord" }, "y2": { "$ref": "#/definitions/coord" },
+        "color": { "$ref": "#/definitions/color" }, "width": { "$ref": "#/definitions/strokeWidth" }
+      }
+    },
+    "arrow": {
+      "type": "object",
+      "required": ["type", "x1", "y1", "x2", "y2"],
+      "additionalProperties": false,
+      "description": "Arrow from (x1,y1) to the tip (x2,y2).",
+      "properties": {
+        "type": { "const": "arrow" },
+        "x1": { "$ref": "#/definitions/coord" }, "y1": { "$ref": "#/definitions/coord" },
+        "x2": { "$ref": "#/definitions/coord" }, "y2": { "$ref": "#/definitions/coord" },
+        "head": { "type": "number", "minimum": 4, "maximum": 60 },
+        "color": { "$ref": "#/definitions/color" }, "width": { "$ref": "#/definitions/strokeWidth" }
+      }
+    },
+    "rect": {
+      "type": "object",
+      "required": ["type", "x", "y", "w", "h"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "rect" },
+        "x": { "$ref": "#/definitions/coord" }, "y": { "$ref": "#/definitions/coord" },
+        "w": { "$ref": "#/definitions/size" }, "h": { "$ref": "#/definitions/size" },
+        "color": { "$ref": "#/definitions/color" }, "width": { "$ref": "#/definitions/strokeWidth" },
+        "fill": { "$ref": "#/definitions/color" }
+      }
+    },
+    "circle": {
+      "type": "object",
+      "required": ["type", "cx", "cy", "r"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "circle" },
+        "cx": { "$ref": "#/definitions/coord" }, "cy": { "$ref": "#/definitions/coord" },
+        "r": { "$ref": "#/definitions/size" },
+        "color": { "$ref": "#/definitions/color" }, "width": { "$ref": "#/definitions/strokeWidth" },
+        "fill": { "$ref": "#/definitions/color" }
+      }
+    },
+    "path": {
+      "type": "object",
+      "required": ["type", "d"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "path" },
+        "d": { "type": "string", "minLength": 3, "maxLength": 4000, "description": "SVG path data using only M L H V C S Q T Z (absolute or relative)" },
+        "color": { "$ref": "#/definitions/color" }, "width": { "$ref": "#/definitions/strokeWidth" },
+        "fill": { "$ref": "#/definitions/color" }
+      }
+    },
+    "text": {
+      "type": "object",
+      "required": ["type", "x", "y", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "text" },
+        "x": { "$ref": "#/definitions/coord" }, "y": { "$ref": "#/definitions/coord" },
+        "text": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "size": { "type": "number", "minimum": 18, "maximum": 80, "description": "18 is the smallest size legible from the seats" },
+        "align": { "enum": ["left", "center", "right"] },
+        "color": { "$ref": "#/definitions/color" }
+      }
+    },
+    "math": {
+      "type": "object",
+      "required": ["type", "x", "y", "tex"],
+      "additionalProperties": false,
+      "description": "A formula typeset from LaTeX (like a text element: x/y is the anchor per align, at the vertical middle). Use it for every equation, fraction, root, integral, sum, matrix, Greek letter or unit expression.",
+      "properties": {
+        "type": { "const": "math" },
+        "x": { "$ref": "#/definitions/coord" }, "y": { "$ref": "#/definitions/coord" },
+        "tex": { "type": "string", "minLength": 1, "maxLength": 500, "description": "LaTeX math (amsmath), without $ delimiters, e.g. \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}" },
+        "size": { "type": "number", "minimum": 18, "maximum": 80, "description": "font size, like text (a fraction is about 2.3 x size tall)" },
+        "align": { "enum": ["left", "center", "right"] },
+        "color": { "$ref": "#/definitions/color" }
+      }
+    },
+    "dnaStrandPair": {
+      "type": "object",
+      "required": ["type", "sequence", "x", "y", "length"],
+      "additionalProperties": false,
+      "description": "Double-stranded DNA. `sequence` is the top strand left to right; the bottom strand is computed (complementary, antiparallel).",
+      "properties": {
+        "type": { "const": "dnaStrandPair" },
+        "sequence": { "$ref": "#/definitions/sequence" },
+        "x": { "$ref": "#/definitions/coord" }, "y": { "$ref": "#/definitions/coord" },
+        "length": { "$ref": "#/definitions/size" },
+        "orientation": { "enum": ["5to3", "3to5"], "description": "direction of the top strand, left to right" },
+        "gap": { "type": "number", "minimum": 60, "maximum": 200 },
+        "labels": { "enum": ["both", "left", "right", "none"] },
+        "showDirection": { "type": "boolean" }
+      }
+    },
+    "replicationFork": {
+      "type": "object",
+      "required": ["type", "x", "y", "width", "height"],
+      "additionalProperties": false,
+      "description": "Replication fork moving right. Use `parts` to draw it progressively over several steps with identical geometry parameters.",
+      "properties": {
+        "type": { "const": "replicationFork" },
+        "x": { "$ref": "#/definitions/coord" }, "y": { "$ref": "#/definitions/coord" },
+        "width": { "type": "number", "minimum": 400, "maximum": 1000 },
+        "height": { "type": "number", "minimum": 250, "maximum": 560 },
+        "sequence": { "$ref": "#/definitions/sequence" },
+        "forkAt": { "type": "number", "minimum": 0.3, "maximum": 0.6 },
+        "fragments": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "lang": { "enum": ["en", "fr"], "description": "language of the labels the fork draws itself (set by the server)" },
+        "parts": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["duplex", "templates", "helicase", "topoisomerase", "ssb", "leading", "lagging", "labels"] }
+        }
+      }
+    }
+  }
+}

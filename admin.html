@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Uni Simu — Admin</title>
+    <style>
+      :root { color-scheme: dark; --bg: #121317; --card: #1b1d23; --fg: #e8e6e1; --muted: #9a978f; --line: rgba(255, 255, 255, 0.12); --accent: #4f8cff; --danger: #e5484d; }
+      * { box-sizing: border-box; }
+      body { margin: 0; padding: 24px 16px; background: var(--bg); color: var(--fg); font: 14px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif; }
+      main { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+      h1 { margin: 0; font-size: 20px; }
+      h2 { margin: 0 0 8px; font-size: 15px; }
+      .muted { color: var(--muted); font-size: 12px; }
+      .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+      input, select, button { font: inherit; color: var(--fg); background: rgba(255, 255, 255, 0.06); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+      button { cursor: pointer; }
+      button.primary { background: var(--accent); border-color: transparent; color: #fff; font-weight: 600; }
+      button.danger[data-confirm] { background: var(--danger); border-color: transparent; color: #fff; }
+      input[type='password'] { min-width: 260px; flex: 1; }
+      .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+      .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+      .card b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+      section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px; overflow-x: auto; }
+      table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+      th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+      th { color: var(--muted); font-weight: 500; font-size: 12px; }
+      td.num, th.num { text-align: right; }
+      #message:empty { display: none; }
+      #message { color: #ff8a8d; }
+      .pager { justify-content: center; margin-top: 10px; }
+      .pager span { min-width: 180px; text-align: center; font-variant-numeric: tabular-nums; }
+      button:disabled { opacity: 0.4; cursor: default; }
+      button.link { background: none; border: none; padding: 0; color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+      button.ban { border-color: rgba(229, 72, 77, 0.5); }
+      .badge { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px; background: var(--danger); color: #fff; font-size: 11px; }
+      td .bar { flex-wrap: nowrap; }
+      dialog { width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--fg); }
+      dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+      dialog[open] { display: flex; flex-direction: column; gap: 12px; }
+      dialog header { display: flex; align-items: center; gap: 8px; }
+      dialog header h2 { margin: 0; flex: 1; font-size: 17px; overflow-wrap: anywhere; }
+      dialog section { padding: 0; border: none; }
+      [hidden] { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header class="bar">
+        <h1>Uni Simu — Admin</h1>
+        <span class="muted">Gemini usage per IP</span>
+      </header>
+
+      <form id="login" class="bar">
+        <input id="token" type="password" autocomplete="current-password" placeholder="Admin token (ADMIN_TOKEN)" required />
+        <button class="primary" type="submit">Open</button>
+      </form>
+
+      <div id="panel" hidden>
+        <div class="bar">
+          <label>Period
+            <select id="days">
+              <option value="1">Last 24 hours</option>
+              <option value="7" selected>Last 7 days</option>
+              <option value="30">Last 30 days</option>
+            </select>
+          </label>
+          <button id="refresh" type="button">↻ Refresh</button>
+          <label><input id="auto" type="checkbox" checked /> Auto-refresh (30 s)</label>
+          <button id="logout" type="button">Log out</button>
+        </div>
+      </div>
+      <p id="message"></p>
+
+      <div id="report" hidden>
+        <div class="cards">
+          <div class="card"><span class="muted">IP addresses</span><b id="t-ips">–</b></div>
+          <div class="card"><span class="muted">Requests</span><b id="t-requests">–</b></div>
+          <div class="card"><span class="muted">Input tokens</span><b id="t-in">–</b></div>
+          <div class="card"><span class="muted">Output tokens</span><b id="t-out">–</b></div>
+          <div class="card"><span class="muted">Cost (USD)</span><b id="t-usd">–</b></div>
+        </div>
+
+        <section>
+          <h2>Per IP (biggest spenders first)</h2>
+          <table>
+            <thead><tr><th>IP</th><th class="num">Requests</th><th class="num">Input tokens</th><th class="num">Output tokens</th><th class="num">Cost (USD)</th><th>Last seen</th><th>Last endpoint</th><th></th></tr></thead>
+            <tbody id="ips"></tbody>
+          </table>
+        </section>
+
+        <section>
+          <h2>Recent requests</h2>
+          <table>
+            <thead><tr><th>Time</th><th>IP</th><th>Endpoint</th><th class="num">Input tokens</th><th class="num">Output tokens</th><th class="num">Cost (USD)</th></tr></thead>
+            <tbody id="recent"></tbody>
+          </table>
+          <div class="bar pager">
+            <button id="prev" type="button" aria-label="Newer requests">◀ Newer</button>
+            <span id="page" class="muted"></span>
+            <button id="next" type="button" aria-label="Older requests">Older ▶</button>
+          </div>
+        </section>
+
+        <section>
+          <h2>License keys (today)</h2>
+          <p class="muted" id="keys-note"></p>
+          <table>
+            <thead><tr><th>Key</th><th class="num">Lessons today</th><th class="num">IP addresses today</th><th></th></tr></thead>
+            <tbody id="keys"></tbody>
+          </table>
+        </section>
+
+        <section>
+          <h2>Banned IPs</h2>
+          <p class="muted">A banned IP gets "access blocked" on every request to the app's API until it is unbanned.</p>
+          <table>
+            <thead><tr><th>IP</th><th>Banned since</th><th></th></tr></thead>
+            <tbody id="bans"></tbody>
+          </table>
+        </section>
+
+        <p class="muted" id="retention"></p>
+      </div>
+    </main>
+    <dialog id="ip-dialog" aria-labelledby="ip-title">
+      <header>
+        <h2 id="ip-title"></h2>
+        <span id="ip-banned" class="badge" hidden>Banned</span>
+        <button id="ip-ban" type="button" class="ban"></button>
+        <button id="ip-close" type="button" aria-label="Close">✕</button>
+      </header>
+      <div class="cards">
+        <div class="card"><span class="muted">Total cost (USD)</span><b id="ip-usd">–</b></div>
+        <div class="card"><span class="muted">Requests</span><b id="ip-requests">–</b></div>
+        <div class="card"><span class="muted">Input tokens</span><b id="ip-in">–</b></div>
+        <div class="card"><span class="muted">Output tokens</span><b id="ip-out">–</b></div>
+      </div>
+      <p class="muted" id="ip-seen"></p>
+      <section>
+        <h2>Per day</h2>
+        <table>
+          <thead><tr><th>Day</th><th class="num">Requests</th><th class="num">Input tokens</th><th class="num">Output tokens</th><th class="num">Cost (USD)</th></tr></thead>
+          <tbody id="ip-days"></tbody>
+        </table>
+      </section>
+      <section>
+        <h2>Latest requests</h2>
+        <table>
+          <thead><tr><th>Time</th><th>Endpoint</th><th class="num">Input tokens</th><th class="num">Output tokens</th><th class="num">Cost (USD)</th></tr></thead>
+          <tbody id="ip-recent"></tbody>
+        </table>
+      </section>
+    </dialog>
+    <script type="module" src="/src/admin.js"></script>
+  </body>
+</html>
