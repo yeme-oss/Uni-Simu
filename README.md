@@ -18,7 +18,7 @@
 
 You sit in a 3D lecture hall. A professor walks to the board and teaches you **any subject, at any level of difficulty**. They **write and draw on the whiteboard**, show a **slideshow**, and speak to you.
 
-You can **ask questions** at any time. At the end of class you can (and should) **take a picture of your notes for feedback**. It is as simple as that.
+You can **ask questions** at any time. It is as simple as that.
 
 <table>
   <tr>
