@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.patreon.com/c/PierreIgorZarebski"><img alt="Support on Patreon" src="https://img.shields.io/badge/Support%20on-Patreon-F96854?style=for-the-badge&logo=patreon&logoColor=white"></a>
+  <a href="https://www.patreon.com/c/PierreIgorZarebski"><img alt="Join free on Patreon" src="https://img.shields.io/badge/Join%20free%20on-Patreon-F96854?style=for-the-badge&logo=patreon&logoColor=white"></a>
   <img alt="License: CC0" src="https://img.shields.io/badge/license-CC0%20public%20domain-2ea043?style=for-the-badge">
 </p>
 
@@ -69,6 +69,6 @@ test/     node --test suites
 
 **CC0 1.0: public domain.** Do whatever you like. See [LICENSE](LICENSE). Third-party items keep their own terms: see [NOTICE.md](NOTICE.md).
 
-## Support
+## Free, really
 
-If this helped you learn something, consider [becoming a patron](https://www.patreon.com/c/PierreIgorZarebski). More at **[Trinifty](https://github.com/yeme-oss/Trinifty)**.
+Keep your hard-earned coins: Uni Simu is free stuff, enjoy. My [Patreon](https://www.patreon.com/c/PierreIgorZarebski) is free to join too, for updates and new releases. More at **[Trinifty](https://github.com/yeme-oss/Trinifty)**.
