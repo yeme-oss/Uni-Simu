@@ -3,7 +3,7 @@
 <p align="center"><img src="docs/classroom-dna.jpg" alt="A 3D professor presenting The Double Helix" width="100%"></p>
 
 <p align="center">
-  <b>A university-lecture simulator. There is no shortcut: pay attention, and take notes.</b><br>
+  <b>A university-lecture simulator: a 3D professor who writes, draws and teaches you anything.</b><br>
   <sub>Part of <b>Trinifty</b> - all nifty stuff - all for free.</sub>
 </p>
 
